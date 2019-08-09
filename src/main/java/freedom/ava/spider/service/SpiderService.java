@@ -145,6 +145,26 @@ public class SpiderService {
         catch (Exception ex){
             System.out.println(ex);
         }
+        // 有可能没有 词性，正则规则就会不一样，如果跟上面合并成一个更复杂的正则式，又有可能太慢，超时，所以这里分开，再检索一次
+        if(meaning.isEmpty()){
+            pt_meaning = Pattern.compile("<p>[\\s\\S]*?<span class\\=\"simple-definition\">([\\s\\S]*?)</span>[\\s\\S]*?</p>");
+            mc_meaning = RegularExpressionUtils.createMatcherWithTimeout(
+                    html, pt_meaning, 3000);
+            try {
+                while (mc_meaning.find()) {
+                    if (meaning.isEmpty()) {
+                        meaning = mc_meaning.group(1).trim();
+                    } else {
+                        meaning += "\r\n" + mc_meaning.group(1).trim();
+                    }
+                    System.out.println("find a meaning");
+                }
+            }
+            catch (Exception ex){
+                System.out.println(ex);
+            }
+        }
+
         if (meaning.isEmpty()) {
             throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG);
         }

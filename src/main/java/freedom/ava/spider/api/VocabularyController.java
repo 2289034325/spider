@@ -39,7 +39,7 @@ public class VocabularyController {
 
         int lang = Integer.parseInt(params.get("lang").toString());
         String words_str = params.get("words").toString();
-        List<String> words = Arrays.asList(words_str.split(",",-1));
+        List<String> words = Arrays.asList(words_str.split("[,，]",-1));
         //去掉空白和太长太短的
         words = words.stream().map(w->w.trim()).collect(Collectors.toList());
         words = words.stream().filter(w->w.length()>2 && w.length() < 20).collect(Collectors.toList());
