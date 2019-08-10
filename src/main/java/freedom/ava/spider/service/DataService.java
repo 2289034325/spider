@@ -27,5 +27,8 @@ public class DataService {
                 dictionaryRepository.insertSentence(s);
             }
         }
+
+        //放到用户词书 TODO 暂时的做法，以后要删除
+//        dictionaryRepository.addUserBookWords(10,w.getId());
     }
 }

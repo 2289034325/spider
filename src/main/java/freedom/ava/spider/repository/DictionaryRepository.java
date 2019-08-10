@@ -45,4 +45,6 @@ public interface DictionaryRepository {
     @SelectKey(statement="select @@identity", keyProperty="id", before=false, resultType=Integer.class)
     Integer insertSentence(Sentence sentence);
 
+    @Insert("insert into user_book_word (user_book_id,word_id,deleted) values (#{user_book_id},#{word_id},0)")
+    int addUserBookWords(@Param("user_book_id") int user_book_id, @Param("word_id") int word_id);
 }

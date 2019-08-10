@@ -91,7 +91,7 @@ public class VocabularyHandler {
 
             // 这里要是不休眠，会导致后面整个线程卡主，没反应!!!
             try {
-                Thread.sleep(1000);
+                Thread.sleep(500);
             } catch (Exception ex) {
                 System.out.println(ex);
             }
