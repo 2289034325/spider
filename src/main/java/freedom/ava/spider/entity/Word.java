@@ -11,6 +11,7 @@ public class Word
     private String spell;
     private String pronounce;
     private String meaning;
+    private String forms;
     private boolean deleted;
     private List<Explain> explains;
     private List<Sentence> sentences;
@@ -19,6 +20,14 @@ public class Word
     private int answer_times;
     private int wrong_times;
     private int learn_phase;
+
+    public String getForms() {
+        return forms;
+    }
+
+    public void setForms(String forms) {
+        this.forms = forms;
+    }
 
     public Date getLast_learn_time() {
         return last_learn_time;

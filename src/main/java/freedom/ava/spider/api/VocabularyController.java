@@ -2,6 +2,7 @@ package freedom.ava.spider.api;
 
 import freedom.ava.spider.entity.VocabularyMessage;
 import freedom.ava.spider.entity.Word;
+import freedom.ava.spider.repository.DictionaryRepository;
 import freedom.ava.spider.service.SpiderService;
 import freedom.ava.spider.util.BusinessException;
 import freedom.ava.spider.util.CustomMessageMap;
@@ -27,11 +28,8 @@ public class VocabularyController {
     @Qualifier("vq")
     private LinkedList<VocabularyMessage> vq;
 
-    @Autowired
-    SpiderService spiderService;
-
     @RequestMapping(path = "/",method = RequestMethod.POST)
-    public ResponseEntity<Object> searchBooks(@RequestBody Map params) {
+    public ResponseEntity<Object> putIntoQueue(@RequestBody Map params) {
 
         if(params.get("lang") == null || params.get("words") == null){
             throw new BusinessException(CustomMessageMap.SCRAWL_INVALID_PARAM);
@@ -47,9 +45,7 @@ public class VocabularyController {
         // 放入队列
         words.forEach(w->vq.push(new VocabularyMessage(lang,w)));
 
-        System.out.println("put a message");
-
-//        Word w = spiderService.grabWord(lang,words.get(0));
+        System.out.println("put a message "+ words_str);
 
         return new ResponseEntity("", HttpStatus.OK);
     }

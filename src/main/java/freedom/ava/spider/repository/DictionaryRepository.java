@@ -9,11 +9,11 @@ import java.util.List;
 
 public interface DictionaryRepository {
 
-    @Select("select * from word where spell=#{spell} and deleted=0")
-    List<Word> selectWord(@Param("spell") String spell);
+    @Select("select * from word where spell=#{spell} and form like '%' #{form} '%' and deleted=0")
+    List<Word> selectWordsByForm(@Param("lang") Integer lang,@Param("form") String form);
 
     @Select("select * from word where lang=#{lang} and spell=#{spell} and deleted=0")
-    List<Word> selectWord2(@Param("lang") Integer lang, @Param("spell") String spell);
+    List<Word> selectWordsBySpell(@Param("lang") Integer lang, @Param("spell") String spell);
 
     @Select("select * from `explain` where word_id=#{word_id} and deleted=0")
     List<Explain> selectWordExplains(@Param("word_id") Integer word_id);

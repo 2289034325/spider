@@ -52,7 +52,7 @@ public class VocabularyHandler {
             if(msg != null){
                 System.out.println("get a message");
                 // 检查是否已经存在
-                List<Word> wo = dictionaryRepository.selectWord2(msg.getLang(),msg.getSpell());
+                List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(),msg.getSpell());
                 if(wo.size()==0){
                     Word w = null;
                     try {
@@ -68,7 +68,7 @@ public class VocabularyHandler {
                     did = true;
                     if(w != null) {
                         // 爬到的词形可能跟输入的词形不一致，需要再检查一遍
-                        wo = dictionaryRepository.selectWord2(msg.getLang(), w.getSpell());
+                        wo = dictionaryRepository.selectWordsBySpell(msg.getLang(), w.getSpell());
                         if (wo.size() == 0) {
                             dataService.saveWord(w);
                         }

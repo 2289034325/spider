@@ -277,6 +277,32 @@ public class SpiderService {
             ls_explain.add(e);
         }
 
+        //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
+        List<String> forms = new ArrayList<>();
+        forms.add(word_text);
+        Pattern pt_form = Pattern.compile("<p>[\\s\\S]*?<span>([\\s\\S]*?)</span>[\\s\\S]*?<span class\\=\"simple-definition\">([\\s\\S]*?)</span>[\\s\\S]*?</p>");
+        Matcher mc_form = RegularExpressionUtils.createMatcherWithTimeout(
+                html, pt_form, 3000);
+        try {
+            while (mc_form.find()) {
+                String form = mc_form.group(1).trim();
+                if(!forms.contains(form)) {
+                    forms.add(form);
+                }
+                System.out.println("find a form");
+            }
+        }
+        catch (Exception ex){
+            System.out.println(ex);
+        }
+        // 再结合例句中所有的词形
+        ls_explain.forEach(e->e.getSentences().forEach(s->{
+            if(!forms.contains(s.getWord())) {
+                forms.add(s.getWord());
+            }
+        }));
+        String forms_str =  String.join(",", forms);
+
         System.out.println("finish grab");
 
         Word w = new Word();
@@ -284,6 +310,7 @@ public class SpiderService {
         w.setSpell(word_text);
         w.setPronounce(pronounce);
         w.setMeaning(meaning);
+        w.setForms(forms_str);
         w.setExplains(ls_explain);
 
         return w;
