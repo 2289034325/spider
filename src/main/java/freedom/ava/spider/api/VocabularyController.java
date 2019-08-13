@@ -1,9 +1,6 @@
 package freedom.ava.spider.api;
 
 import freedom.ava.spider.entity.VocabularyMessage;
-import freedom.ava.spider.entity.Word;
-import freedom.ava.spider.repository.DictionaryRepository;
-import freedom.ava.spider.service.SpiderService;
 import freedom.ava.spider.util.BusinessException;
 import freedom.ava.spider.util.CustomMessageMap;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +8,15 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -43,9 +46,13 @@ public class VocabularyController {
         words = words.stream().filter(w->w.length()>2 && w.length() < 20).collect(Collectors.toList());
 
         // 放入队列
-        words.forEach(w->vq.push(new VocabularyMessage(lang,w)));
-
-        System.out.println("put a message "+ words_str);
+        words.forEach(w->{
+            VocabularyMessage msg = new VocabularyMessage(lang,w);
+            if(!vq.contains(msg)) {
+                vq.add(msg);
+                System.out.println("put a message "+ w);
+            }
+        });
 
         return new ResponseEntity("", HttpStatus.OK);
     }

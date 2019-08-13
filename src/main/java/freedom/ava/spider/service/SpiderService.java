@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class SpiderService {
@@ -280,7 +281,7 @@ public class SpiderService {
         //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
         List<String> forms = new ArrayList<>();
         forms.add(word_text);
-        Pattern pt_form = Pattern.compile("<p>[\\s\\S]*?<span>([\\s\\S]*?)</span>[\\s\\S]*?<span class\\=\"simple-definition\">([\\s\\S]*?)</span>[\\s\\S]*?</p>");
+        Pattern pt_form = Pattern.compile("<li>[\\s\\S]*?<span class\\=\"inflections-item-attr\">[\\s\\S]*?</span>[\\s\\S]*?<a href\\=\".*?\">([\\s\\S]*?)</a>[\\s\\S]*?</li>");
         Matcher mc_form = RegularExpressionUtils.createMatcherWithTimeout(
                 html, pt_form, 3000);
         try {
@@ -301,7 +302,14 @@ public class SpiderService {
                 forms.add(s.getWord());
             }
         }));
-        String forms_str =  String.join(",", forms);
+
+        // 为了将来检索提高效率，将所有词形包上括号[]
+        // 如果不加[]，例如forms为abc,bcd,acd，使用 like 时，bc 将被判定为符合条件
+        // 加上[] 后[abc],[bcd],[acd]，用[bc]去检索，就不会出现这个问题
+        // foreach 不会改变元素!!!
+        // forms.forEach(f->f="["+f+"]");
+        List<String> newForms = forms.stream().map(l-> "["+l+"]").collect(Collectors.toList());
+        String forms_str =  String.join(",", newForms);
 
         System.out.println("finish grab");
 

@@ -52,7 +52,7 @@ public class VocabularyHandler {
             if(msg != null){
                 System.out.println("get a message");
                 // 检查是否已经存在
-                List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(),msg.getSpell());
+                List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(),"["+msg.getSpell()+"]");
                 if(wo.size()==0){
                     Word w = null;
                     try {

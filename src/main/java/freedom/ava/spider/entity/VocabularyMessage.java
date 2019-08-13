@@ -24,4 +24,14 @@ public class VocabularyMessage {
     public void setSpell(String spell) {
         this.spell = spell;
     }
+
+    public boolean equals(Object o) {
+        if (o == this) return true;
+        if (!(o instanceof VocabularyMessage)) {
+            return false;
+        }
+        VocabularyMessage msg = (VocabularyMessage) o;
+        return msg.lang == lang &&
+                msg.spell == spell;
+    }
 }

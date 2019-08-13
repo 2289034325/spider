@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface DictionaryRepository {
 
-    @Select("select * from word where spell=#{spell} and form like '%' #{form} '%' and deleted=0")
+    @Select("select * from word where lang=#{lang} and forms like '%' #{form} '%' and deleted=0")
     List<Word> selectWordsByForm(@Param("lang") Integer lang,@Param("form") String form);
 
     @Select("select * from word where lang=#{lang} and spell=#{spell} and deleted=0")
@@ -33,7 +33,7 @@ public interface DictionaryRepository {
     @Select("select count(*) from sentence where explain_id=#{id} and deleted=0")
     Integer countExplainSentences(@Param("id") Integer id);
 
-    @Insert("insert into word (lang,spell,pronounce,meaning,deleted) values(#{lang},#{spell},#{pronounce},#{meaning},0)")
+    @Insert("insert into word (lang,spell,pronounce,meaning,forms,deleted) values(#{lang},#{spell},#{pronounce},#{meaning},#{forms},0)")
     @SelectKey(statement="select @@identity", keyProperty="id", before=false, resultType=Integer.class)
     Integer insertWord(Word word);
 
