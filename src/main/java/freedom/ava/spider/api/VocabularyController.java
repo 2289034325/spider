@@ -1,6 +1,10 @@
 package freedom.ava.spider.api;
 
 import freedom.ava.spider.entity.VocabularyMessage;
+import freedom.ava.spider.entity.Word;
+import freedom.ava.spider.repository.DictionaryRepository;
+import freedom.ava.spider.service.DataService;
+import freedom.ava.spider.service.SpiderService;
 import freedom.ava.spider.util.BusinessException;
 import freedom.ava.spider.util.CustomMessageMap;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,10 +12,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -28,11 +29,41 @@ import java.util.stream.Collectors;
 public class VocabularyController {
 
     @Autowired
-    @Qualifier("vq")
-    private LinkedList<VocabularyMessage> vq;
+    @Qualifier("instant_q")
+    private LinkedList<VocabularyMessage> instant_q;
 
-    @RequestMapping(path = "/",method = RequestMethod.POST)
-    public ResponseEntity<Object> putIntoQueue(@RequestBody Map params) {
+    @Autowired
+    @Qualifier("schedule_q")
+    private LinkedList<VocabularyMessage> schedule_q;
+
+    @Autowired
+    private SpiderService spiderService;
+
+    @Autowired
+    private DictionaryRepository dictionaryRepository;
+
+    @Autowired
+    private DataService dataService;
+
+    @RequestMapping(path = "/instant/{lang}/{form}",method = RequestMethod.GET)
+    public ResponseEntity<Object> instantGrab(@PathVariable("lang") int lang,@PathVariable("form") String form) {
+
+        form = form.trim();
+        if(form.length()<2 || form.length() > 20){
+            throw new BusinessException(CustomMessageMap.SCRAWL_INVALID_PARAM);
+        }
+
+        VocabularyMessage msg = new VocabularyMessage(lang,form);
+        if(!instant_q.contains(msg)) {
+            instant_q.add(msg);
+            System.out.println("put a message "+ form);
+        }
+
+        return new ResponseEntity("", HttpStatus.OK);
+    }
+
+    @RequestMapping(path = "/queue",method = RequestMethod.POST)
+    public ResponseEntity<Object> scheduleGrab(@RequestBody Map params) {
 
         if(params.get("lang") == null || params.get("words") == null){
             throw new BusinessException(CustomMessageMap.SCRAWL_INVALID_PARAM);
@@ -48,8 +79,8 @@ public class VocabularyController {
         // 放入队列
         words.forEach(w->{
             VocabularyMessage msg = new VocabularyMessage(lang,w);
-            if(!vq.contains(msg)) {
-                vq.add(msg);
+            if(!schedule_q.contains(msg)) {
+                schedule_q.add(msg);
                 System.out.println("put a message "+ w);
             }
         });

@@ -30,7 +30,23 @@ public class SpiderService {
     @Qualifier("varBag")
     private HashMap<String,Object> varBag;
 
-    public Word grabWord(int lang, String word){
+    /**
+     * 理论上有两条线程会使用到该方法
+     * 一个是管理员用户的即时爬取，一个是管理后台的批量爬取
+     * @param lang
+     * @param word
+     * @return
+     */
+    synchronized public Word grabWord(int lang, String word){
+        String html = getHtml(lang,word);
+
+        //解析html
+        Word w = analyzeHtml(lang,html);
+
+        return w;
+    }
+
+    private String getHtml(int lang, String word) {
         String requestUrl = "";
         if(lang == 1){
             requestUrl = String.format(properties.getHjen(),word);
@@ -70,10 +86,7 @@ public class SpiderService {
 
         System.out.println("get response");
 
-        //解析html
-        Word w = analyzeHtml(lang,html);
-
-        return w;
+        return html;
     }
 
     private Word analyzeHtml(int lang,String html) {

@@ -65,8 +65,14 @@ public class Config {
         return driver;
     }
 
-    @Bean(name = "vq")
-    public LinkedList<VocabularyMessage> initQueue(){
+
+    @Bean(name = "instant_q")
+    public LinkedList<VocabularyMessage> instantQueue(){
+        return new LinkedList<>();
+    }
+
+    @Bean(name = "schedule_q")
+    public LinkedList<VocabularyMessage> scheduleQueue(){
         return new LinkedList<>();
     }
 
