@@ -9,6 +9,7 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.openqa.selenium.phantomjs.PhantomJSDriver;
 import org.openqa.selenium.phantomjs.PhantomJSDriverService;
 import org.openqa.selenium.remote.DesiredCapabilities;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +27,9 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 @MapperScan(basePackages = {"freedom.ava.spider.repository"})
 public class Config {
+
+    @Autowired
+    private Properties properties;
 
     @Bean
     @ConfigurationProperties("spring.datasource")
@@ -56,7 +60,7 @@ public class Config {
         dcaps.setCapability("takesScreenshot", true);
         dcaps.setCapability("cssSelectorsEnabled", true);
         dcaps.setJavascriptEnabled(true);
-        dcaps.setCapability(PhantomJSDriverService.PHANTOMJS_EXECUTABLE_PATH_PROPERTY, "E:\\Program Files\\phantomjs-2.1.1-windows\\bin\\phantomjs.exe");
+        dcaps.setCapability(PhantomJSDriverService.PHANTOMJS_EXECUTABLE_PATH_PROPERTY, properties.getPhantomjsPath());
 
         PhantomJSDriver driver = new PhantomJSDriver(dcaps);
         //设置隐性等待（作用于全局）

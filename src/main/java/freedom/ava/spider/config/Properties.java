@@ -6,6 +6,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class Properties{
 
+    @Value("${spider.phantomjs.path}")
+    private String phantomjsPath;
+
     @Value("${spider.hj.english.url}")
     private String hjen;
     @Value("${spider.hj.japanese.url}")
@@ -14,6 +17,14 @@ public class Properties{
     private String hjkr;
     @Value("${spider.hj.french.url}")
     private String hjfr;
+
+    public String getPhantomjsPath() {
+        return phantomjsPath;
+    }
+
+    public void setPhantomjsPath(String phantomjsPath) {
+        this.phantomjsPath = phantomjsPath;
+    }
 
     public String getHjen() {
         return hjen;
