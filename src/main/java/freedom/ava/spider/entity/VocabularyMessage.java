@@ -32,6 +32,6 @@ public class VocabularyMessage {
         }
         VocabularyMessage msg = (VocabularyMessage) o;
         return msg.lang == lang &&
-                msg.spell == spell;
+                msg.spell.equals(spell);
     }
 }

@@ -50,29 +50,36 @@ public class VocabularyHandler {
 
     public void instantHandle() {
         while (true) {
-            VocabularyMessage msg = instant_q.poll();
+            // 爬虫需要时间处理，如果这里用poll，在处理的过程当中，客户端又送过来一个同样的词，那么这个词又会被放进队列中。
+            // 因此这里不能直接将词从队列中移除，需要在爬虫处理完以后再从队列移除
+            VocabularyMessage msg = instant_q.peek();
             if (msg != null) {
-                // 检查是否已经存在
-                List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(), "[" + msg.getSpell() + "]");
-                if (wo.size() == 0) {
-                    Word w = null;
-                    try {
+                try {
+                    // 检查是否已经存在
+                    List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(), "[" + msg.getSpell() + "]");
+                    if (wo.size() == 0) {
+                        Word w = null;
+
                         System.out.println("start grab " + msg.getSpell());
                         // 抓取可能会出异常
                         w = spiderService.grabWord(msg.getLang(), msg.getSpell());
-                    } catch (Exception ex) {
-                        //抓取异常，直接跳过，处理下一个
-                        System.out.println("word " + msg.getSpell() + " lang " + msg.getLang() + " grab fail!");
-                        System.out.println(ex);
-                    }
 
-                    if (w != null) {
-                        // 爬到的词形可能跟输入的词形不一致，需要再检查一遍
-                        wo = dictionaryRepository.selectWordsBySpell(msg.getLang(), w.getSpell());
-                        if (wo.size() == 0) {
-                            dataService.saveWord(w);
+
+                        if (w != null) {
+                            // 爬到的词形可能跟输入的词形不一致，需要再检查一遍
+                            wo = dictionaryRepository.selectWordsBySpell(msg.getLang(), w.getSpell());
+                            if (wo.size() == 0) {
+                                dataService.saveWord(w);
+                            }
                         }
                     }
+                } catch (Exception ex) {
+                    //抓取异常，直接跳过，处理下一个
+                    System.out.println("word " + msg.getSpell() + " lang " + msg.getLang() + " grab fail!");
+                    System.out.println(ex);
+                }
+                finally {
+                    instant_q.poll();
                 }
             }
 
@@ -90,41 +97,44 @@ public class VocabularyHandler {
         int sleep = 0;
         while(true){
             did = false;
-            VocabularyMessage msg = schedule_q.poll();
-            if(msg != null){
-                System.out.println("get a message");
-                // 检查是否已经存在
-                List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(),"["+msg.getSpell()+"]");
-                if(wo.size()==0){
-                    Word w = null;
-                    try {
-                        System.out.println("start grab "+msg.getSpell());
+            VocabularyMessage msg = schedule_q.peek();
+            if(msg != null) {
+                try {
+                    System.out.println("get a message");
+                    // 检查是否已经存在
+                    List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(), "[" + msg.getSpell() + "]");
+                    if (wo.size() == 0) {
+                        Word w = null;
+                        System.out.println("start grab " + msg.getSpell());
                         // 抓取可能会出异常
                         w = spiderService.grabWord(msg.getLang(), msg.getSpell());
-                    }
-                    catch (Exception ex){
-                        //抓取异常，直接跳过，处理下一个
-                        System.out.println("word "+msg.getSpell()+" lang "+ msg.getLang() +" grab fail!");
-                        System.out.println(ex);
-                    }
-                    did = true;
-                    if(w != null) {
-                        // 爬到的词形可能跟输入的词形不一致，需要再检查一遍
-                        wo = dictionaryRepository.selectWordsBySpell(msg.getLang(), w.getSpell());
-                        if (wo.size() == 0) {
-                            dataService.saveWord(w);
+
+                        did = true;
+                        if (w != null) {
+                            // 爬到的词形可能跟输入的词形不一致，需要再检查一遍
+                            wo = dictionaryRepository.selectWordsBySpell(msg.getLang(), w.getSpell());
+                            if (wo.size() == 0) {
+                                dataService.saveWord(w);
+                            }
                         }
                     }
-                }
-                if(did) {
-                    // TODO 暂时使用最简单的随机休眠策略
-                    sleep = RandomUtil.getRandomInt(3 * 1000, 3 * 60 * 1000);
-                    System.out.println("sleep "+sleep);
-                    try {
-                        Thread.sleep(sleep);
-                    } catch (Exception ex) {
-                        System.out.println(ex);
+                    if (did) {
+                        // TODO 暂时使用最简单的随机休眠策略
+                        sleep = RandomUtil.getRandomInt(3 * 1000, 3 * 60 * 1000);
+                        System.out.println("sleep " + sleep);
+                        try {
+                            Thread.sleep(sleep);
+                        } catch (Exception ex) {
+                            System.out.println(ex);
+                        }
                     }
+                } catch (Exception ex) {
+                    //抓取异常，直接跳过，处理下一个
+                    System.out.println("word " + msg.getSpell() + " lang " + msg.getLang() + " grab fail!");
+                    System.out.println(ex);
+                }
+                finally {
+                    schedule_q.poll();
                 }
             }
 
