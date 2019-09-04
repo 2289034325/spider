@@ -133,9 +133,10 @@ public class SpiderService {
             System.out.println(ex);
         }
 
-        if(pronounce.isEmpty()){
-            throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG);
-        }
+        // 短语，词组，可能没有发音
+//        if(pronounce.isEmpty()){
+//            throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG);
+//        }
 
         System.out.println("find pronounce");
 
@@ -284,11 +285,14 @@ public class SpiderService {
                 System.out.println(ex);
             }
 
-            Explain e = new Explain();
-            e.setExplain(explain);
-            e.setSentences(ls_sentence);
+            // 没有例句的就不保存了
+            if(ls_sentence.size() > 0) {
+                Explain e = new Explain();
+                e.setExplain(explain);
+                e.setSentences(ls_sentence);
 
-            ls_explain.add(e);
+                ls_explain.add(e);
+            }
         }
 
         //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
