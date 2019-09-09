@@ -36,6 +36,7 @@ public class DataService {
             int book_id = bk.get("book_id");
             dictionaryRepository.insertBookWord(book_id,w.getId());
             dictionaryRepository.updateBookWordCount(book_id);
+            dictionaryRepository.updateUserBookWordCount(book_id);
         }
     }
 }

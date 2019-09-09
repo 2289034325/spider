@@ -36,4 +36,7 @@ public interface DictionaryRepository {
 
     @Update("update book set word_count=word_count+1 where id=#{book_id}")
     void updateBookWordCount(@Param("book_id") Integer book_id);
+
+    @Update("update user_book set notstart_count=notstart_count+1 where book_id=#{book_id}")
+    void updateUserBookWordCount(@Param("book_id") Integer book_id);
 }
