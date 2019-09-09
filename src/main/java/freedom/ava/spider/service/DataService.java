@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+
 @Repository
 public class DataService {
 
@@ -29,6 +31,11 @@ public class DataService {
         }
 
         //放到用户词书 TODO 暂时的做法，以后要删除
-//        dictionaryRepository.addUserBookWords(10,w.getId());
+        Map<String,Integer> bk = dictionaryRepository.selectDefaultBook(1,w.getLang());
+        if(bk != null){
+            int book_id = bk.get("book_id");
+            dictionaryRepository.insertBookWord(book_id,w.getId());
+            dictionaryRepository.updateBookWordCount(book_id);
+        }
     }
 }
