@@ -1,6 +1,7 @@
 package freedom.ava.spider.handler;
 
 import freedom.ava.spider.config.Properties;
+import freedom.ava.spider.entity.Lang;
 import freedom.ava.spider.entity.VocabularyMessage;
 import freedom.ava.spider.entity.Word;
 import freedom.ava.spider.repository.DictionaryRepository;
@@ -58,19 +59,12 @@ public class VocabularyHandler {
                     // 检查是否已经存在
                     List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(), "[" + msg.getSpell() + "]");
                     if (wo.size() == 0) {
-                        Word w = null;
-
                         System.out.println("start grab " + msg.getSpell());
                         // 抓取可能会出异常
-                        w = spiderService.grabWord(msg.getLang(), msg.getSpell());
+                        List<Word> words = spiderService.grabWord(msg.getLang(), msg.getSpell());
 
-
-                        if (w != null) {
-                            // 爬到的词形可能跟输入的词形不一致，需要再检查一遍
-                            wo = dictionaryRepository.selectWordsBySpell(msg.getLang(), w.getSpell());
-                            if (wo.size() == 0) {
-                                dataService.saveWord(w);
-                            }
+                        for(Word w : words) {
+                            dataService.saveWord(w);
                         }
                     }
                 } catch (Exception ex) {
@@ -104,18 +98,13 @@ public class VocabularyHandler {
                     // 检查是否已经存在
                     List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(), "[" + msg.getSpell() + "]");
                     if (wo.size() == 0) {
-                        Word w = null;
                         System.out.println("start grab " + msg.getSpell());
                         // 抓取可能会出异常
-                        w = spiderService.grabWord(msg.getLang(), msg.getSpell());
+                        List<Word> words = spiderService.grabWord(msg.getLang(), msg.getSpell());
 
                         did = true;
-                        if (w != null) {
-                            // 爬到的词形可能跟输入的词形不一致，需要再检查一遍
-                            wo = dictionaryRepository.selectWordsBySpell(msg.getLang(), w.getSpell());
-                            if (wo.size() == 0) {
-                                dataService.saveWord(w);
-                            }
+                        for(Word w : words) {
+                            dataService.saveWord(w);
                         }
                     }
                     if (did) {

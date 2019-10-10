@@ -7,9 +7,18 @@ public class Explain
 {
     private Integer id;
     private Integer word_id;
+    private String pronounce;
     private String explain;
     private List<Sentence> sentences;
     private boolean deleted;
+
+    public String getPronounce() {
+        return pronounce;
+    }
+
+    public void setPronounce(String pronounce) {
+        this.pronounce = pronounce;
+    }
 
     public List<Sentence> getSentences() {
         return sentences;

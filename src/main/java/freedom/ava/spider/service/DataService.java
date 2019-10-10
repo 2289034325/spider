@@ -1,6 +1,7 @@
 package freedom.ava.spider.service;
 
 import freedom.ava.spider.entity.Explain;
+import freedom.ava.spider.entity.Lang;
 import freedom.ava.spider.entity.Sentence;
 import freedom.ava.spider.entity.Word;
 import freedom.ava.spider.repository.DictionaryRepository;
@@ -8,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @Repository
@@ -18,6 +21,11 @@ public class DataService {
 
     @Transactional
     public void saveWord(Word w){
+        List<Word> words =  dictionaryRepository.selectWordsBySpell(w.getLang(), w.getSpell());
+        if (words.size() > 0) {
+            return;
+        }
+
         //保存入库
         dictionaryRepository.insertWord(w);
         for(Explain e: w.getExplains()){
@@ -31,9 +39,8 @@ public class DataService {
         }
 
         //放到用户词书 TODO 暂时的做法，以后要删除
-        Map<String,Integer> bk = dictionaryRepository.selectDefaultBook(1,w.getLang());
-        if(bk != null){
-            int book_id = bk.get("book_id");
+        Integer book_id = dictionaryRepository.selectDefaultBook(1,w.getLang());
+        if(book_id != null){
             dictionaryRepository.insertBookWord(book_id,w.getId());
             dictionaryRepository.updateBookWordCount(book_id);
             dictionaryRepository.updateUserBookWordCount(book_id);

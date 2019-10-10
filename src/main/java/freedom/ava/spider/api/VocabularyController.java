@@ -1,5 +1,6 @@
 package freedom.ava.spider.api;
 
+import freedom.ava.spider.entity.Lang;
 import freedom.ava.spider.entity.VocabularyMessage;
 import freedom.ava.spider.entity.Word;
 import freedom.ava.spider.repository.DictionaryRepository;
@@ -45,12 +46,47 @@ public class VocabularyController {
     @Autowired
     private DataService dataService;
 
-    @RequestMapping(path = "/instant/{lang}/{form}",method = RequestMethod.GET)
+
+    @RequestMapping(path = "/grab/{lang}/{form}",method = RequestMethod.GET)
     public ResponseEntity<Object> instantGrab(@PathVariable("lang") int lang,@PathVariable("form") String form) {
 
         form = form.trim();
-        if(form.length()<2 || form.length() > 20){
-            throw new BusinessException(CustomMessageMap.SCRAWL_INVALID_PARAM);
+        // 英文法文单词长度不能小于3
+        if(lang == Lang.EN.getIndex() || lang == Lang.FR.getIndex()) {
+            if (form.length() < 3 || form.length() > 20) {
+                throw new BusinessException(CustomMessageMap.SCRAWL_INVALID_PARAM);
+            }
+        }
+        // 日语和韩语可以只有一个字符
+        else if(lang == Lang.JP.getIndex() || lang == Lang.KR.getIndex()) {
+            if (form.length() < 1 || form.length() > 10) {
+                throw new BusinessException(CustomMessageMap.SCRAWL_INVALID_PARAM);
+            }
+        }
+
+        List<Word> words = spiderService.grabWord(lang, form);
+        for(Word w : words) {
+            dataService.saveWord(w);
+        }
+
+        return new ResponseEntity(words, HttpStatus.OK);
+    }
+
+    @RequestMapping(path = "/msg/instant/{lang}/{form}",method = RequestMethod.GET)
+    public ResponseEntity<Object> putInstantMsg(@PathVariable("lang") int lang,@PathVariable("form") String form) {
+
+        form = form.trim();
+        // 英文法文单词长度不能小于3
+        if(lang == Lang.EN.getIndex() || lang == Lang.FR.getIndex()) {
+            if (form.length() < 3 || form.length() > 20) {
+                throw new BusinessException(CustomMessageMap.SCRAWL_INVALID_PARAM);
+            }
+        }
+        // 日语和韩语可以只有一个字符
+        else if(lang == Lang.JP.getIndex() || lang == Lang.KR.getIndex()) {
+            if (form.length() < 1 || form.length() > 10) {
+                throw new BusinessException(CustomMessageMap.SCRAWL_INVALID_PARAM);
+            }
         }
 
         VocabularyMessage msg = new VocabularyMessage(lang,form);
@@ -62,8 +98,8 @@ public class VocabularyController {
         return new ResponseEntity("", HttpStatus.OK);
     }
 
-    @RequestMapping(path = "/queue",method = RequestMethod.POST)
-    public ResponseEntity<Object> scheduleGrab(@RequestBody Map params) {
+    @RequestMapping(path = "/msg/queue",method = RequestMethod.POST)
+    public ResponseEntity<Object> putQueueMsg(@RequestBody Map params) {
 
         if(params.get("lang") == null || params.get("words") == null){
             throw new BusinessException(CustomMessageMap.SCRAWL_INVALID_PARAM);

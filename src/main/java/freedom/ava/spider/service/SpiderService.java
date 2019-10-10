@@ -2,17 +2,25 @@ package freedom.ava.spider.service;
 
 import freedom.ava.spider.config.Properties;
 import freedom.ava.spider.entity.Explain;
+import freedom.ava.spider.entity.Lang;
 import freedom.ava.spider.entity.Sentence;
 import freedom.ava.spider.entity.Word;
 import freedom.ava.spider.util.BusinessException;
 import freedom.ava.spider.util.CustomMessageMap;
 import freedom.ava.spider.util.RandomUtil;
 import freedom.ava.spider.util.RegularExpressionUtils;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.openqa.selenium.phantomjs.PhantomJSDriver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Nullable;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -28,295 +36,238 @@ public class SpiderService {
 
     @Autowired
     @Qualifier("varBag")
-    private HashMap<String,Object> varBag;
+    private HashMap<String, Object> varBag;
 
     /**
      * 理论上有两条线程会使用到该方法
      * 一个是管理员用户的即时爬取，一个是管理后台的批量爬取
+     *
      * @param lang
      * @param word
      * @return
      */
-    synchronized public Word grabWord(int lang, String word){
-        String html = getHtml(lang,word);
+    synchronized public List<Word> grabWord(int lang, String word) {
+        String requestUrl = "";
+        List<Word> words = new ArrayList<>();
+
+        try {
+            word = URLEncoder.encode(word, "utf-8");
+        } catch (UnsupportedEncodingException e) {
+            System.out.println("encode error");
+            e.printStackTrace();
+        }
+
+        if (lang == Lang.EN.getIndex()) {
+            requestUrl = String.format(properties.getHjen(), word);
+        } else if (lang == Lang.JP.getIndex()) {
+            requestUrl = String.format(properties.getHjjp(), word);
+        } else if (lang == Lang.KR.getIndex()) {
+            requestUrl = String.format(properties.getHjkr(), word);
+        } else if (lang == Lang.FR.getIndex()) {
+            requestUrl = String.format(properties.getHjfr(), word);
+        }
+        String html = getHtml(requestUrl);
 
         //解析html
-        Word w = analyzeHtml(lang,html);
+        if(lang == Lang.EN.getIndex()) {
+            Word w = analyzeHtml_hj_en(html);
+            if(w != null){
+                words.add(w);
+            }
+        }
+        else if(lang == Lang.JP.getIndex()) {
+            words = analyzeHtml_hj_jp(html);
+        }
 
-        return w;
+        return words;
     }
 
-    private String getHtml(int lang, String word) {
-        String requestUrl = "";
-        if(lang == 1){
-            requestUrl = String.format(properties.getHjen(),word);
-        }
-        else if(lang == 2){
-            requestUrl = String.format(properties.getHjjp(),word);
-        }
-        else if(lang == 3){
-            requestUrl = String.format(properties.getHjkr(),word);
-        }
-        else if(lang == 4){
-            requestUrl = String.format(properties.getHjfr(),word);
-        }
-
+    private String getHtml(String requestUrl) {
         phantomJSDriver.get(requestUrl);
         String html = phantomJSDriver.getPageSource();
 
         long lastGrabTime = 0;
-        if(varBag.get("lastGrabTime")!= null) {
+        if (varBag.get("lastGrabTime") != null) {
             lastGrabTime = (long) varBag.get("lastGrabTime");
         }
-        long spanTime = new Date().getTime()-lastGrabTime;
+        long spanTime = new Date().getTime() - lastGrabTime;
         // 匿名session有效期为30分钟，需要重新发送请求，才能查询到
-        if(spanTime>29*60*1000)
-        {
+        if (spanTime > 29 * 60 * 1000) {
             try {
                 //随机睡眠3秒
-                Thread.sleep( RandomUtil.getRandomInt(500,3*1000));
-            }
-            catch (Exception ex){
+                Thread.sleep(RandomUtil.getRandomInt(500, 3 * 1000));
+            } catch (Exception ex) {
                 System.out.println(ex);
             }
             phantomJSDriver.get(requestUrl);
             html = phantomJSDriver.getPageSource();
         }
-        varBag.put("lastGrabTime",new Date().getTime());
+        varBag.put("lastGrabTime", new Date().getTime());
 
         System.out.println("get response");
 
         return html;
     }
 
-    private Word analyzeHtml(int lang,String html) {
+    private Word analyzeHtml_hj_en(String html) {
+        Document doc = Jsoup.parse(html);
 
         //解析单词（查询的如果不是一般时态，沪江会返回正常时态的单词，例如查询does，返回的是do
         String word_text = "";
-        Pattern pt_word_text = Pattern.compile("\\<div class\\=\"word-text\"\\>([\\s\\S]*?)\\<h2\\>(.*)\\</h2>([\\s\\S]*?)\\</div\\>");
-//        Matcher mc_word_text = pt_word_text.matcher(html);
-//        while (mc_word_text.find()) {
-//            word_text = mc_word_text.group(2);
-//        }
-        Matcher mc_word_text = RegularExpressionUtils.createMatcherWithTimeout(
-                html, pt_word_text, 3000);
         try {
-            while (mc_word_text.find()) {
-                word_text = mc_word_text.group(2);
-            }
+            Element div = doc.getElementsByClass("word-text").first();
+            word_text = div.children().first().text().trim();
+
+            System.out.println("find spell");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        catch (Exception ex){
-            System.out.println(ex);
+        if (word_text.isEmpty()) {
+            throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_SPELL);
         }
 
-        if(word_text.isEmpty()){
-            throw new BusinessException(CustomMessageMap.SCRAWL_NONE);
-        }
-
-        System.out.println("find spell");
 
         //解析发音
         String pronounce = "";
-        Pattern pt_pronounce = Pattern.compile("\\<span class\\=\"pronounce-value-us\"\\>\\[(.*)\\]\\</span\\>");
-//        Matcher mc_pronounce = pt_pronounce.matcher(html);
-//        while (mc_pronounce.find()) {
-//            pronounce = mc_pronounce.group(1);
-//        }
-        Matcher mc_pronounce = RegularExpressionUtils.createMatcherWithTimeout(
-                html, pt_pronounce, 3000);
         try {
-            while (mc_pronounce.find()) {
-                pronounce = mc_pronounce.group(1);
-            }
+            Elements eles = doc.getElementsByClass("pronounce-value-us");
+            pronounce = eles.get(0).text().trim().replace("[", "").replace("]", "");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        catch (Exception ex){
-            System.out.println(ex);
+        if (pronounce.isEmpty()) {
+            System.out.println("find no pronounce");
+        } else {
+            System.out.println("find pronounce");
         }
-
-        // 短语，词组，可能没有发音
-//        if(pronounce.isEmpty()){
-//            throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG);
-//        }
-
-        System.out.println("find pronounce");
 
         //解析意思
         String meaning = "";
-        Pattern pt_meaning = Pattern.compile("<p>[\\s\\S]*?<span>([\\s\\S]*?)</span>[\\s\\S]*?<span class\\=\"simple-definition\">([\\s\\S]*?)</span>[\\s\\S]*?</p>");
-        //Matcher.find 方法可能会卡死线程，需要嵌入超时机制，防止线程卡死!!!
-//        Matcher mc_meaning = pt_meaning.matcher(html);
-        Matcher mc_meaning = RegularExpressionUtils.createMatcherWithTimeout(
-                html, pt_meaning, 3000);
         try {
-            while (mc_meaning.find()) {
-                if (meaning.isEmpty()) {
-                    meaning = mc_meaning.group(1).trim() + " " + mc_meaning.group(2).trim();
-                } else {
-                    meaning += "\r\n" + mc_meaning.group(1).trim() + " " + mc_meaning.group(2).trim();
-                }
-                System.out.println("find a meaning");
-            }
-        }
-        catch (Exception ex){
-            System.out.println(ex);
-        }
-        // 有可能没有 词性，正则规则就会不一样，如果跟上面合并成一个更复杂的正则式，又有可能太慢，超时，所以这里分开，再检索一次
-        if(meaning.isEmpty()){
-            pt_meaning = Pattern.compile("<p>[\\s\\S]*?<span class\\=\"simple-definition\">([\\s\\S]*?)</span>[\\s\\S]*?</p>");
-            mc_meaning = RegularExpressionUtils.createMatcherWithTimeout(
-                    html, pt_meaning, 3000);
-            try {
-                while (mc_meaning.find()) {
+            Element ele = doc.getElementsByClass("simple").first();
+            for (Element p : ele.children()) {
+                Elements sps = p.children();
+                // 有词性
+                if (sps.size() == 2) {
                     if (meaning.isEmpty()) {
-                        meaning = mc_meaning.group(1).trim();
+                        meaning = sps.get(0).text().trim() + " " + sps.get(1).text().trim();
                     } else {
-                        meaning += "\r\n" + mc_meaning.group(1).trim();
+                        meaning += "\r\n" + sps.get(0).text().trim() + " " + sps.get(1).text().trim();
                     }
-                    System.out.println("find a meaning");
                 }
-            }
-            catch (Exception ex){
-                System.out.println(ex);
-            }
-        }
+                // 没词性
+                else {
+                    if (meaning.isEmpty()) {
+                        meaning = sps.get(0).text().trim();
+                    } else {
+                        meaning += "\r\n" + sps.get(0).text().trim();
+                    }
+                }
 
+                System.out.println("find meaning");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         if (meaning.isEmpty()) {
-            throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG);
-        }
-
-        List<Explain> exps = new ArrayList<>();
-        //解析释义组
-        List<String> ls_groups = new ArrayList<>();
-        Pattern pt_groups = Pattern.compile("\\<dd[\\s\\S]*?\\>[\\s\\S]*?\\<h3\\>+[\\s\\S]*?\\<\\/dd\\>");
-//        Matcher mc_groups = pt_groups.matcher(html);
-//        while (mc_groups.find()) {
-//            ls_groups.add(mc_groups.group());
-//        }
-        Matcher mc_groups = RegularExpressionUtils.createMatcherWithTimeout(
-                html, pt_groups, 3000);
-        try {
-            while (mc_groups.find()) {
-                ls_groups.add(mc_groups.group());
-            }
-        }
-        catch (Exception ex){
-            System.out.println(ex);
+            throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_MEANING);
         }
 
         //解析释义
-        Pattern pt_explain = Pattern.compile("\\<h3\\>([\\s\\S]*?)\\<p\\>([\\s\\S]*?)\\<\\/p\\>([\\s\\S]*?)\\<\\/h3\\>");
-        Pattern pt_sentence_block = Pattern.compile("<li>([\\s\\S]*?)</li>");
-        Pattern pt_sentence = Pattern.compile("<p class=\"def-sentence-from\">([\\s\\S]*?)<span([\\s\\S]*?)></span>([\\s\\S]*?)</p>");
-        Pattern pt_word = Pattern.compile("<mark(.*)>(.*)</mark>");
-        Pattern pt_translation = Pattern.compile("<p class=\"def-sentence-to\">([\\s\\S]*?)</p>");
-        List<Explain> ls_explain = new ArrayList<>();
-        List<Sentence> ls_sentence;
-        String explain = "";
-        //多个不同释义
-        for (String exp : ls_groups) {
-            ls_sentence = new ArrayList<>();
+        List<Explain> exps = new ArrayList<>();
+        try {
+            Elements ex_sections = doc.getElementsByClass("detail-groups");
+            if (ex_sections.size() == 0) {
+                throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_EXPLAIN);
+            }
+            Element ex_section = ex_sections.get(0);
+            Elements dls = ex_section.getElementsByTag("dl");
+            for (Element dl : dls) {
+                // 为了不让一个出错就导致整个抓取失败，不抛出异常，继续解析下一个
+                try {
+                    // 每个释义条目可能有不同的发音
+                    String prn = "";
+                    try {
+                        Element dt = dl.getElementsByTag("dt").first();
+                        prn = dt.children().first().text().trim().replace("/", "");
+                    }
+                    catch (Exception ex){
+                        ex.printStackTrace();
+                    }
 
-            //释义
-//            Matcher mc_explain = pt_explain.matcher(exp);
-//            while (mc_explain.find()) {
-//                explain = mc_explain.group(2).trim().replace("\r","").replace("\n","").replace(" ","");
-//            }
-            Matcher mc_explain = RegularExpressionUtils.createMatcherWithTimeout(exp, pt_explain, 3000);
-            try {
-                while (mc_explain.find()) {
-                    explain = mc_explain.group(2).trim().replace("\r","").replace("\n","").replace(" ","");
-                    System.out.println("find a explain "+ explain);
+                    Elements dds = dl.getElementsByTag("dd");
+                    for (Element dd : dds) {
+                        // 为了不让一个出错就导致整个抓取失败，不抛出异常，继续解析下一个
+                        try {
+                            Element h3 = dd.child(0);
+                            Explain exp = new Explain();
+                            exp.setPronounce(prn);
+                            exp.setExplain(h3.text().trim());
+
+                            Element ul = dd.getElementsByTag("ul").first();
+                            List<Sentence> sts = new ArrayList<>();
+                            Elements lis = ul.children();
+                            for (Element li : lis) {
+                                String sentence = li.child(0).text().trim();
+                                // 这里不将原形用作默认词形，测验时可尽量选择有词形的例句
+                                // 因为即使将原形用作默认词形也不一定对
+                                String word_form = "";
+                                if (li.child(0).children().size() > 0) {
+                                    word_form = li.child(0).child(0).text().trim();
+                                }
+
+                                String translation = li.child(1).text().trim();
+
+                                Sentence s = new Sentence();
+                                s.setSentence(sentence);
+                                s.setTranslation(translation);
+                                s.setWord(word_form);
+
+                                sts.add(s);
+                            }
+
+                            // 没有例句的释义就不保存了
+                            if(sts.size()>0) {
+                                exp.setSentences(sts);
+                                exps.add(exp);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
-            catch (Exception ex){
-                System.out.println(ex);
-            }
-
-            //多个句子
-//            Matcher mc_sentence_block = pt_sentence_block.matcher(exp);
-            Matcher mc_sentence_block = RegularExpressionUtils.createMatcherWithTimeout(
-                    exp, pt_sentence_block, 10*1000);
-            try {
-                while (mc_sentence_block.find()) {
-//                    Matcher mc_word = pt_word.matcher(mc_sentence_block.group());
-                    Matcher mc_word = RegularExpressionUtils.createMatcherWithTimeout(mc_sentence_block.group(), pt_word, 3000);
-//                    Matcher mc_sentence = pt_sentence.matcher(mc_sentence_block.group());
-                    Matcher mc_sentence = RegularExpressionUtils.createMatcherWithTimeout(mc_sentence_block.group(), pt_sentence, 3000);
-//                    Matcher mc_translation = pt_translation.matcher(mc_sentence_block.group());
-                    Matcher mc_translation = RegularExpressionUtils.createMatcherWithTimeout(mc_sentence_block.group(), pt_translation, 3000);
-
-                    String word_shape = "";
-                    String mark = "";
-                    String sentence = "";
-                    String translation = "";
-                    try {
-                        while (mc_word.find()) {
-                            mark = mc_word.group();
-                            word_shape = mc_word.group(2);
-                        }
-                    } catch (Exception ex) {
-                        System.out.println(ex);
-                    }
-                    try {
-                        while (mc_sentence.find()) {
-                            sentence = mc_sentence.group(1).replace(mark,word_shape).trim();
-                        }
-                    } catch (Exception ex) {
-                        System.out.println(ex);
-                    }
-                    try {
-                        while (mc_translation.find()) {
-                            translation = mc_translation.group(1).trim();
-                        }
-                    } catch (Exception ex) {
-                        System.out.println(ex);
-                    }
-
-                    System.out.println("find a sentence "+sentence);
-
-                    Sentence s = new Sentence();
-                    s.setWord(word_shape);
-                    s.setSentence(sentence);
-                    s.setTranslation(translation);
-                    ls_sentence.add(s);
-                }
-            }
-            catch (Exception ex){
-                System.out.println(ex);
-            }
-
-            // 没有例句的就不保存了
-            if(ls_sentence.size() > 0) {
-                Explain e = new Explain();
-                e.setExplain(explain);
-                e.setSentences(ls_sentence);
-
-                ls_explain.add(e);
-            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (exps.size() == 0) {
+            System.out.println("find exps");
+        } else {
+            System.out.println("find no exps");
         }
 
         //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
         List<String> forms = new ArrayList<>();
         forms.add(word_text);
-        Pattern pt_form = Pattern.compile("<li>[\\s\\S]*?<span class\\=\"inflections-item-attr\">[\\s\\S]*?</span>[\\s\\S]*?<a href\\=\".*?\">([\\s\\S]*?)</a>[\\s\\S]*?</li>");
-        Matcher mc_form = RegularExpressionUtils.createMatcherWithTimeout(
-                html, pt_form, 3000);
         try {
-            while (mc_form.find()) {
-                String form = mc_form.group(1).trim();
-                if(!forms.contains(form)) {
-                    forms.add(form);
+            Elements uls = doc.getElementsByClass("inflections-items");
+            if (uls.size() > 0) {
+                Elements lis = uls.get(0).children();
+                for (Element li : lis) {
+                    forms.add(li.child(1).text().trim());
                 }
-                System.out.println("find a form");
             }
-        }
-        catch (Exception ex){
-            System.out.println(ex);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
         // 再结合例句中所有的词形
-        ls_explain.forEach(e->e.getSentences().forEach(s->{
-            if(!forms.contains(s.getWord())) {
-                forms.add(s.getWord());
+        exps.forEach(e -> e.getSentences().forEach(s -> {
+            if(!s.getWord().isEmpty()) {
+                if (!forms.contains(s.getWord())) {
+                    forms.add(s.getWord());
+                }
             }
         }));
 
@@ -325,19 +276,211 @@ public class SpiderService {
         // 加上[] 后[abc],[bcd],[acd]，用[bc]去检索，就不会出现这个问题
         // foreach 不会改变元素!!!
         // forms.forEach(f->f="["+f+"]");
-        List<String> newForms = forms.stream().map(l-> "["+l+"]").collect(Collectors.toList());
-        String forms_str =  String.join(",", newForms);
+        List<String> newForms = forms.stream().map(l -> "[" + l + "]").collect(Collectors.toList());
+        String forms_str = String.join(",", newForms);
 
         System.out.println("finish grab");
 
         Word w = new Word();
-        w.setLang(lang);
+        w.setLang(Lang.EN.getIndex());
         w.setSpell(word_text);
         w.setPronounce(pronounce);
         w.setMeaning(meaning);
         w.setForms(forms_str);
-        w.setExplains(ls_explain);
+        w.setExplains(exps);
 
         return w;
+    }
+
+    // 日语检索结果有可能有多个不同词（同形不同音，或者同音不同形）
+    private List<Word> analyzeHtml_hj_jp(String html) {
+        List<Word> words = new ArrayList<>();
+        Document doc = Jsoup.parse(html);
+        Elements pnls = doc.getElementsByClass("word-details-pane");
+        for(Element pnl : pnls){
+            Word w = analyzeHtml_hj_jp_one(pnl);
+            if(w != null){
+                Word exw = words.stream().filter(wi->wi.getSpell().equals(w.getSpell())).findAny().orElse(null);
+                if(exw == null) {
+                    words.add(w);
+                }
+                // 合并同形词（词形一样的算同一个词有多个音）
+                else{
+                    String prn = exw.getPronounce()+","+w.getPronounce();
+                    String mng;
+                    // 没有多个发音，表明尚未合并。合并前需要把本身的发音放到意思前面
+                    if(exw.getPronounce().contains(",")) {
+                        mng = exw.getMeaning() + "\r\n\r\n" + w.getPronounce() + "\r\n" + w.getMeaning();
+                    }
+                    else{
+                        mng = exw.getPronounce() + "\r\n" + exw.getMeaning() + "\r\n\r\n" + w.getPronounce() + "\r\n" + w.getMeaning();
+                    }
+
+                    exw.setPronounce(prn);
+                    exw.setMeaning(mng);
+                    exw.getExplains().addAll(w.getExplains());
+                }
+            }
+        }
+
+        return words;
+    }
+
+    @Nullable
+    private Word analyzeHtml_hj_jp_one(Element wordBlock){
+        try {
+            //解析单词（查询的如果不是一般时态，沪江会返回正常时态的单词，例如查询does，返回的是do
+            String word_text = "";
+
+            try {
+                Element div = wordBlock.getElementsByClass("word-text").first();
+                word_text = div.children().first().text().trim();
+
+                System.out.println("find spell");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            if (word_text.isEmpty()) {
+                throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_SPELL);
+            }
+
+
+            //解析发音
+            String pronounce = "";
+            try {
+                Element div = wordBlock.getElementsByClass("pronounces").first();
+                pronounce = div.children().first().text().trim().replace("[", "").replace("]", "");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            if (pronounce.isEmpty()) {
+                System.out.println("find no pronounce");
+            } else {
+                System.out.println("find pronounce");
+            }
+
+            //解析意思
+            String meaning = "";
+            try {
+                Element div = wordBlock.getElementsByClass("simple").first();
+                Element ul = div.getElementsByTag("ul").first();
+                for (Element li : ul.children()) {
+                    if (meaning.isEmpty()) {
+                        meaning = li.text().trim();
+                    } else {
+                        if (meaning.endsWith("\r\n")) {
+                            meaning += li.text().trim();
+                        } else {
+                            meaning += "\r\n" + li.text().trim();
+                        }
+                    }
+
+                    System.out.println("find meaning");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            if (meaning.isEmpty()) {
+                throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_MEANING);
+            }
+
+            //解析释义
+            List<Explain> exps = new ArrayList<>();
+            try {
+                Element ex_section = wordBlock.getElementsByClass("detail-groups").first();
+                Elements dls = ex_section.getElementsByTag("dl");
+                for (Element dl : dls) {
+                    // 为了不让一个出错就导致整个抓取失败，不抛出异常，继续解析下一个
+                    try {
+                        Elements dds = dl.getElementsByTag("dd");
+                        for (Element dd : dds) {
+                            // 为了不让一个出错就导致整个抓取失败，不抛出异常，继续解析下一个
+                            try {
+                                Element h3 = dd.child(0);
+                                Explain exp = new Explain();
+                                exp.setPronounce(pronounce);
+                                exp.setExplain(h3.text().trim());
+
+                                Element ul = dd.getElementsByTag("ul").first();
+                                List<Sentence> sts = new ArrayList<>();
+                                Elements lis = ul.children();
+                                for (Element li : lis) {
+                                    String sentence = li.child(0).text().trim();
+                                    // 不设默认词形，测验的时候可尽量选择有词形的例句
+                                    String word_form = "";
+                                    if (li.child(0).children().size() > 0) {
+                                        word_form = li.child(0).child(0).text().trim();
+                                    }
+
+                                    String translation = li.child(1).text().trim();
+
+                                    Sentence s = new Sentence();
+                                    s.setSentence(sentence);
+                                    s.setTranslation(translation);
+                                    s.setWord(word_form);
+
+                                    sts.add(s);
+                                }
+
+                                // 没有例句的释义就不保存了
+                                if (sts.size() > 0) {
+                                    exp.setSentences(sts);
+                                    exps.add(exp);
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            if (exps.size() == 0) {
+                System.out.println("find exps");
+            } else {
+                System.out.println("find no exps");
+            }
+
+            //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
+            List<String> forms = new ArrayList<>();
+            forms.add(word_text);
+            // 日语检索页面没有词形变化区域
+            // 再结合例句中所有的词形
+            exps.forEach(e -> e.getSentences().forEach(s -> {
+                if (!s.getWord().isEmpty()) {
+                    if (!forms.contains(s.getWord())) {
+                        forms.add(s.getWord());
+                    }
+                }
+            }));
+
+            // 为了将来检索提高效率，将所有词形包上括号[]
+            // 如果不加[]，例如forms为abc,bcd,acd，使用 like 时，bc 将被判定为符合条件
+            // 加上[] 后[abc],[bcd],[acd]，用[bc]去检索，就不会出现这个问题
+            // foreach 不会改变元素!!!
+            // forms.forEach(f->f="["+f+"]");
+            List<String> newForms = forms.stream().map(l -> "[" + l + "]").collect(Collectors.toList());
+            String forms_str = String.join(",", newForms);
+
+            System.out.println("finish grab");
+
+            Word w = new Word();
+            w.setLang(Lang.JP.getIndex());
+            w.setSpell(word_text);
+            w.setPronounce(pronounce);
+            w.setMeaning(meaning);
+            w.setForms(forms_str);
+            w.setExplains(exps);
+
+            return w;
+        }
+        catch (Exception ex){
+            ex.printStackTrace();
+            return null;
+        }
     }
 }
