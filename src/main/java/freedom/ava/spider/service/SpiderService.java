@@ -75,6 +75,18 @@ public class SpiderService {
                 words.add(w);
             }
         }
+        else if(lang == Lang.FR.getIndex()){
+            Word w = analyzeHtml_hj_fr(html);
+            if(w != null){
+                words.add(w);
+            }
+        }
+        else if(lang == Lang.KR.getIndex()){
+            Word w = analyzeHtml_hj_kr(html);
+            if(w != null){
+                words.add(w);
+            }
+        }
         else if(lang == Lang.JP.getIndex()) {
             words = analyzeHtml_hj_jp(html);
         }
@@ -283,6 +295,337 @@ public class SpiderService {
 
         Word w = new Word();
         w.setLang(Lang.EN.getIndex());
+        w.setSpell(word_text);
+        w.setPronounce(pronounce);
+        w.setMeaning(meaning);
+        w.setForms(forms_str);
+        w.setExplains(exps);
+
+        return w;
+    }
+
+    private Word analyzeHtml_hj_fr(String html) {
+        Document doc = Jsoup.parse(html);
+
+        //解析单词（查询的如果不是一般时态，沪江会返回正常时态的单词，例如查询does，返回的是do
+        String word_text = "";
+        try {
+            Element div = doc.getElementsByClass("word-text").first();
+            word_text = div.children().first().text().trim();
+
+            System.out.println("find spell");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (word_text.isEmpty()) {
+            throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_SPELL);
+        }
+
+
+        //解析发音
+        String pronounce = "";
+        try {
+            Elements eles = doc.getElementsByClass("pronounces");
+            pronounce = eles.get(0).text().trim().replace("[", "").replace("]", "");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (pronounce.isEmpty()) {
+            System.out.println("find no pronounce");
+        } else {
+            System.out.println("find pronounce");
+        }
+
+        //解析意思
+        String meaning = "";
+        try {
+            Element div = doc.getElementsByClass("simple").first();
+            for (Element p : div.children()) {
+                if (meaning.isEmpty()) {
+                    meaning = p.text().trim();
+                } else {
+                    if (meaning.endsWith("\r\n")) {
+                        meaning += p.text().trim();
+                    } else {
+                        meaning += "\r\n" + p.text().trim();
+                    }
+                }
+
+                System.out.println("find meaning");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (meaning.isEmpty()) {
+            throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_MEANING);
+        }
+
+        //解析释义
+        List<Explain> exps = new ArrayList<>();
+        try {
+            Elements ex_sections = doc.getElementsByClass("detail-groups");
+            if (ex_sections.size() == 0) {
+                throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_EXPLAIN);
+            }
+            Element ex_section = ex_sections.get(0);
+            Elements dls = ex_section.getElementsByTag("dl");
+            for (Element dl : dls) {
+                // 为了不让一个出错就导致整个抓取失败，不抛出异常，继续解析下一个
+                try {
+                    Elements dds = dl.getElementsByTag("dd");
+                    for (Element dd : dds) {
+                        // 为了不让一个出错就导致整个抓取失败，不抛出异常，继续解析下一个
+                        try {
+                            Element h3 = dd.child(0);
+                            Explain exp = new Explain();
+                            exp.setPronounce(pronounce);
+                            exp.setExplain(h3.text().trim());
+
+                            Element ul = dd.getElementsByTag("ul").first();
+                            List<Sentence> sts = new ArrayList<>();
+                            Elements lis = ul.children();
+                            for (Element li : lis) {
+                                String sentence = li.child(0).text().trim();
+                                // 这里不将原形用作默认词形，测验时可尽量选择有词形的例句
+                                // 因为即使将原形用作默认词形也不一定对
+                                String word_form = "";
+                                if (li.child(0).children().size() > 0) {
+                                    word_form = li.child(0).child(0).text().trim();
+                                }
+
+                                String translation = li.child(1).text().trim();
+
+                                Sentence s = new Sentence();
+                                s.setSentence(sentence);
+                                s.setTranslation(translation);
+                                s.setWord(word_form);
+
+                                sts.add(s);
+                            }
+
+                            // 没有例句的释义就不保存了
+                            if(sts.size()>0) {
+                                exp.setSentences(sts);
+                                exps.add(exp);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (exps.size() == 0) {
+            System.out.println("find exps");
+        } else {
+            System.out.println("find no exps");
+        }
+
+        //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
+        List<String> forms = new ArrayList<>();
+        forms.add(word_text);
+        try {
+            Elements uls = doc.getElementsByClass("inflections-items");
+            if (uls.size() > 0) {
+                Elements lis = uls.get(0).children();
+                for (Element li : lis) {
+                    forms.add(li.child(1).text().trim());
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        // 再结合例句中所有的词形
+        exps.forEach(e -> e.getSentences().forEach(s -> {
+            if(!s.getWord().isEmpty()) {
+                if (!forms.contains(s.getWord())) {
+                    forms.add(s.getWord());
+                }
+            }
+        }));
+
+        // 为了将来检索提高效率，将所有词形包上括号[]
+        // 如果不加[]，例如forms为abc,bcd,acd，使用 like 时，bc 将被判定为符合条件
+        // 加上[] 后[abc],[bcd],[acd]，用[bc]去检索，就不会出现这个问题
+        // foreach 不会改变元素!!!
+        // forms.forEach(f->f="["+f+"]");
+        List<String> newForms = forms.stream().map(l -> "[" + l + "]").collect(Collectors.toList());
+        String forms_str = String.join(",", newForms);
+
+        System.out.println("finish grab");
+
+        Word w = new Word();
+        w.setLang(Lang.FR.getIndex());
+        w.setSpell(word_text);
+        w.setPronounce(pronounce);
+        w.setMeaning(meaning);
+        w.setForms(forms_str);
+        w.setExplains(exps);
+
+        return w;
+    }
+
+    private Word analyzeHtml_hj_kr(String html) {
+        Document doc = Jsoup.parse(html);
+
+        //解析单词（查询的如果不是一般时态，沪江会返回正常时态的单词，例如查询does，返回的是do
+        String word_text = "";
+        try {
+            Element div = doc.getElementsByClass("word-text").first();
+            word_text = div.children().first().text().trim();
+
+            System.out.println("find spell");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (word_text.isEmpty()) {
+            throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_SPELL);
+        }
+
+
+        //解析发音
+        String pronounce = "";
+        try {
+            Elements eles = doc.getElementsByClass("pronounces");
+            pronounce = eles.get(0).text().trim().replace("[", "").replace("]", "");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (pronounce.isEmpty()) {
+            System.out.println("find no pronounce");
+        } else {
+            System.out.println("find pronounce");
+        }
+
+        //解析意思
+        String meaning = "";
+        try {
+            Element div = doc.getElementsByClass("simple").first();
+            Element ul = div.getElementsByTag("ul").first();
+            for (Element li : ul.children()) {
+                if (meaning.isEmpty()) {
+                    meaning = li.text().trim();
+                } else {
+                    if (meaning.endsWith("\r\n")) {
+                        meaning += li.text().trim();
+                    } else {
+                        meaning += "\r\n" + li.text().trim();
+                    }
+                }
+
+                System.out.println("find meaning");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (meaning.isEmpty()) {
+            throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_MEANING);
+        }
+
+        //解析释义
+        List<Explain> exps = new ArrayList<>();
+        try {
+            Elements ex_sections = doc.getElementsByClass("detail-groups");
+            if (ex_sections.size() == 0) {
+                throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_EXPLAIN);
+            }
+            Element ex_section = ex_sections.get(0);
+            Elements dls = ex_section.getElementsByTag("dl");
+            for (Element dl : dls) {
+                // 为了不让一个出错就导致整个抓取失败，不抛出异常，继续解析下一个
+                try {
+                    Elements dds = dl.getElementsByTag("dd");
+                    for (Element dd : dds) {
+                        // 为了不让一个出错就导致整个抓取失败，不抛出异常，继续解析下一个
+                        try {
+                            Element h3 = dd.child(0);
+                            Explain exp = new Explain();
+                            exp.setPronounce(pronounce);
+                            exp.setExplain(h3.text().trim());
+
+                            Element ul = dd.getElementsByTag("ul").first();
+                            List<Sentence> sts = new ArrayList<>();
+                            Elements lis = ul.children();
+                            for (Element li : lis) {
+                                String sentence = li.child(0).text().trim();
+                                // 这里不将原形用作默认词形，测验时可尽量选择有词形的例句
+                                // 因为即使将原形用作默认词形也不一定对
+                                String word_form = "";
+                                if (li.child(0).children().size() > 0) {
+                                    word_form = li.child(0).child(0).text().trim();
+                                }
+
+                                String translation = li.child(1).text().trim();
+
+                                Sentence s = new Sentence();
+                                s.setSentence(sentence);
+                                s.setTranslation(translation);
+                                s.setWord(word_form);
+
+                                sts.add(s);
+                            }
+
+                            // 没有例句的释义就不保存了
+                            if(sts.size()>0) {
+                                exp.setSentences(sts);
+                                exps.add(exp);
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (exps.size() == 0) {
+            System.out.println("find exps");
+        } else {
+            System.out.println("find no exps");
+        }
+
+        //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
+        List<String> forms = new ArrayList<>();
+        forms.add(word_text);
+        try {
+            Elements uls = doc.getElementsByClass("inflections-items");
+            if (uls.size() > 0) {
+                Elements lis = uls.get(0).children();
+                for (Element li : lis) {
+                    forms.add(li.child(1).text().trim());
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        // 再结合例句中所有的词形
+        exps.forEach(e -> e.getSentences().forEach(s -> {
+            if(!s.getWord().isEmpty()) {
+                if (!forms.contains(s.getWord())) {
+                    forms.add(s.getWord());
+                }
+            }
+        }));
+
+        // 为了将来检索提高效率，将所有词形包上括号[]
+        // 如果不加[]，例如forms为abc,bcd,acd，使用 like 时，bc 将被判定为符合条件
+        // 加上[] 后[abc],[bcd],[acd]，用[bc]去检索，就不会出现这个问题
+        // foreach 不会改变元素!!!
+        // forms.forEach(f->f="["+f+"]");
+        List<String> newForms = forms.stream().map(l -> "[" + l + "]").collect(Collectors.toList());
+        String forms_str = String.join(",", newForms);
+
+        System.out.println("finish grab");
+
+        Word w = new Word();
+        w.setLang(Lang.KR.getIndex());
         w.setSpell(word_text);
         w.setPronounce(pronounce);
         w.setMeaning(meaning);
