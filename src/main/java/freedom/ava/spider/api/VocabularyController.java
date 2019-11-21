@@ -3,8 +3,6 @@ package freedom.ava.spider.api;
 import freedom.ava.spider.entity.Lang;
 import freedom.ava.spider.entity.VocabularyMessage;
 import freedom.ava.spider.entity.Word;
-import freedom.ava.spider.repository.DictionaryRepository;
-import freedom.ava.spider.service.DataService;
 import freedom.ava.spider.service.SpiderService;
 import freedom.ava.spider.util.BusinessException;
 import freedom.ava.spider.util.CustomMessageMap;
@@ -40,13 +38,6 @@ public class VocabularyController {
     @Autowired
     private SpiderService spiderService;
 
-    @Autowired
-    private DictionaryRepository dictionaryRepository;
-
-    @Autowired
-    private DataService dataService;
-
-
     @RequestMapping(path = "/grab/{lang}/{form}",method = RequestMethod.GET)
     public ResponseEntity<Object> instantGrab(@PathVariable("lang") int lang,@PathVariable("form") String form) {
 
@@ -65,9 +56,6 @@ public class VocabularyController {
         }
 
         List<Word> words = spiderService.grabWord(lang, form);
-        for(Word w : words) {
-            dataService.saveWord(w);
-        }
 
         return new ResponseEntity(words, HttpStatus.OK);
     }

@@ -1,11 +1,8 @@
 package freedom.ava.spider.handler;
 
 import freedom.ava.spider.config.Properties;
-import freedom.ava.spider.entity.Lang;
 import freedom.ava.spider.entity.VocabularyMessage;
 import freedom.ava.spider.entity.Word;
-import freedom.ava.spider.repository.DictionaryRepository;
-import freedom.ava.spider.service.DataService;
 import freedom.ava.spider.service.SpiderService;
 import freedom.ava.spider.util.RandomUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,12 +31,6 @@ public class VocabularyHandler {
     private SpiderService spiderService;
 
     @Autowired
-    private DictionaryRepository dictionaryRepository;
-
-    @Autowired
-    private DataService dataService;
-
-    @Autowired
     private Properties properties;
 
     @PostConstruct
@@ -56,17 +47,10 @@ public class VocabularyHandler {
             VocabularyMessage msg = instant_q.peek();
             if (msg != null) {
                 try {
-                    // 检查是否已经存在
-                    List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(), "[" + msg.getSpell() + "]");
-                    if (wo.size() == 0) {
                         System.out.println("start grab " + msg.getSpell());
                         // 抓取可能会出异常
                         List<Word> words = spiderService.grabWord(msg.getLang(), msg.getSpell());
 
-                        for(Word w : words) {
-                            dataService.saveWord(w);
-                        }
-                    }
                 } catch (Exception ex) {
                     //抓取异常，直接跳过，处理下一个
                     System.out.println("word " + msg.getSpell() + " lang " + msg.getLang() + " grab fail!");
@@ -95,18 +79,11 @@ public class VocabularyHandler {
             if(msg != null) {
                 try {
                     System.out.println("get a message");
-                    // 检查是否已经存在
-                    List<Word> wo = dictionaryRepository.selectWordsByForm(msg.getLang(), "[" + msg.getSpell() + "]");
-                    if (wo.size() == 0) {
-                        System.out.println("start grab " + msg.getSpell());
-                        // 抓取可能会出异常
-                        List<Word> words = spiderService.grabWord(msg.getLang(), msg.getSpell());
+                    System.out.println("start grab " + msg.getSpell());
+                    // 抓取可能会出异常
+                    List<Word> words = spiderService.grabWord(msg.getLang(), msg.getSpell());
+                    did = true;
 
-                        did = true;
-                        for(Word w : words) {
-                            dataService.saveWord(w);
-                        }
-                    }
                     if (did) {
                         // TODO 暂时使用最简单的随机休眠策略
                         sleep = RandomUtil.getRandomInt(3 * 1000, 3 * 60 * 1000);
