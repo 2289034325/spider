@@ -3,7 +3,7 @@ FROM openjdk:8-jdk-alpine
 WORKDIR /home
 COPY *.jar app.jar
 COPY *.properties ./
-COPY resource/ ./
+COPY *.xml/ ./
 COPY start.sh start.sh
 RUN chmod +x start.sh
 
