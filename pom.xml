@@ -75,6 +75,9 @@
                     <exclude>pom.xml</exclude>
                 </excludes>
             </resource>
+            <resource>
+                <directory>${basedir}/src/main/resources</directory>
+            </resource>
         </resources>
         <plugins>
             <plugin>
