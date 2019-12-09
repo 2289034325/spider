@@ -1,24 +1,18 @@
 package freedom.ava.spider.config;
 
 
-import com.alibaba.druid.spring.boot.autoconfigure.DruidDataSourceAutoConfigure;
 import freedom.ava.spider.entity.VocabularyMessage;
-import org.apache.ibatis.session.SqlSessionFactory;
-import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.annotation.MapperScan;
-import org.openqa.selenium.phantomjs.PhantomJSDriver;
+import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.phantomjs.PhantomJSDriverService;
 import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.remote.RemoteWebDriver;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.filter.CommonsRequestLoggingFilter;
 
-import javax.sql.DataSource;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.concurrent.TimeUnit;
@@ -40,7 +34,7 @@ public class Config {
     }
 
     @Bean
-    PhantomJSDriver phantomJSDriver() {
+    WebDriver phantomJSDriver() throws Exception {
         DesiredCapabilities dcaps = new DesiredCapabilities();
         dcaps.setCapability("acceptSslCerts", true);
         dcaps.setCapability("takesScreenshot", true);
@@ -48,9 +42,12 @@ public class Config {
         dcaps.setJavascriptEnabled(true);
         dcaps.setCapability(PhantomJSDriverService.PHANTOMJS_EXECUTABLE_PATH_PROPERTY, properties.getPhantomjsPath());
 
-        PhantomJSDriver driver = new PhantomJSDriver(dcaps);
+//        PhantomJSDriver driver = new PhantomJSDriver(dcaps);
+        WebDriver driver = new RemoteWebDriver(
+                new URL(properties.getPhantomjsPath()),
+                DesiredCapabilities.phantomjs());
         //设置隐性等待（作用于全局）
-        driver.manage().timeouts().implicitlyWait(1, TimeUnit.SECONDS);
+        driver.manage().timeouts().implicitlyWait(5, TimeUnit.SECONDS);
 
         return driver;
     }

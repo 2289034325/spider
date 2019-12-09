@@ -13,6 +13,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.phantomjs.PhantomJSDriver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -32,7 +33,7 @@ public class SpiderService {
     private Properties properties;
 
     @Autowired
-    private PhantomJSDriver phantomJSDriver;
+    private WebDriver phantomJSDriver;
 
     @Autowired
     @Qualifier("varBag")
