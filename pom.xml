@@ -75,10 +75,6 @@
                     <exclude>pom.xml</exclude>
                 </excludes>
             </resource>
-            <resource>
-                <directory>${basedir}/src/main/resources</directory>
-                <targetPath>${project.build.directory}/dist</targetPath>
-            </resource>
         </resources>
         <plugins>
             <plugin>
