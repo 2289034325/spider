@@ -1,20 +1,20 @@
 package freedom.ava.spider.service;
 
+import com.acxca.components.java.entity.BusinessException;
+import com.acxca.components.java.util.RandomUtil;
 import freedom.ava.spider.config.Properties;
 import freedom.ava.spider.entity.Explain;
 import freedom.ava.spider.entity.Lang;
 import freedom.ava.spider.entity.Sentence;
 import freedom.ava.spider.entity.Word;
-import freedom.ava.spider.util.BusinessException;
 import freedom.ava.spider.util.CustomMessageMap;
-import freedom.ava.spider.util.RandomUtil;
-import freedom.ava.spider.util.RegularExpressionUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.phantomjs.PhantomJSDriver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -23,8 +23,6 @@ import javax.annotation.Nullable;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,6 +36,8 @@ public class SpiderService {
     @Autowired
     @Qualifier("varBag")
     private HashMap<String, Object> varBag;
+
+    protected final Log logger = LogFactory.getLog(this.getClass());
 
     /**
      * 理论上有两条线程会使用到该方法
@@ -54,8 +54,7 @@ public class SpiderService {
         try {
             word = URLEncoder.encode(word, "utf-8");
         } catch (UnsupportedEncodingException e) {
-            System.out.println("encode error");
-            e.printStackTrace();
+            logger.error(e);
         }
 
         if (lang == Lang.EN.getIndex()) {
@@ -110,14 +109,15 @@ public class SpiderService {
                 //随机睡眠3秒
                 Thread.sleep(RandomUtil.getRandomInt(500, 3 * 1000));
             } catch (Exception ex) {
-                System.out.println(ex);
+                logger.error(ex);
             }
             phantomJSDriver.get(requestUrl);
             html = phantomJSDriver.getPageSource();
         }
         varBag.put("lastGrabTime", new Date().getTime());
 
-        System.out.println("get response");
+//        logger.info("get response");
+        logger.info("get response");
 
         return html;
     }
@@ -131,9 +131,9 @@ public class SpiderService {
             Element div = doc.getElementsByClass("word-text").first();
             word_text = div.children().first().text().trim();
 
-            System.out.println("find spell");
+            logger.info("find spell");
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (word_text.isEmpty()) {
             throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_SPELL);
@@ -146,12 +146,12 @@ public class SpiderService {
             Elements eles = doc.getElementsByClass("pronounce-value-us");
             pronounce = eles.get(0).text().trim().replace("[", "").replace("]", "");
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (pronounce.isEmpty()) {
-            System.out.println("find no pronounce");
+            logger.info("find no pronounce");
         } else {
-            System.out.println("find pronounce");
+            logger.info("find pronounce");
         }
 
         //解析意思
@@ -177,10 +177,10 @@ public class SpiderService {
                     }
                 }
 
-                System.out.println("find meaning");
+                logger.info("find meaning");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (meaning.isEmpty()) {
             throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_MEANING);
@@ -205,7 +205,7 @@ public class SpiderService {
                         prn = dt.children().first().text().trim().replace("/", "");
                     }
                     catch (Exception ex){
-                        ex.printStackTrace();
+                        logger.error(ex);
                     }
 
                     Elements dds = dl.getElementsByTag("dd");
@@ -245,20 +245,20 @@ public class SpiderService {
                                 exps.add(exp);
                             }
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            logger.error(e);
                         }
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    logger.error(e);
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (exps.size() == 0) {
-            System.out.println("find exps");
+            logger.info("find exps");
         } else {
-            System.out.println("find no exps");
+            logger.info("find no exps");
         }
 
         //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
@@ -273,7 +273,7 @@ public class SpiderService {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         // 再结合例句中所有的词形
         exps.forEach(e -> e.getSentences().forEach(s -> {
@@ -292,7 +292,7 @@ public class SpiderService {
         List<String> newForms = forms.stream().map(l -> "[" + l + "]").collect(Collectors.toList());
         String forms_str = String.join(",", newForms);
 
-        System.out.println("finish grab");
+        logger.info("finish grab");
 
         Word w = new Word();
         w.setLang(Lang.EN.getIndex());
@@ -314,9 +314,9 @@ public class SpiderService {
             Element div = doc.getElementsByClass("word-text").first();
             word_text = div.children().first().text().trim();
 
-            System.out.println("find spell");
+            logger.info("find spell");
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (word_text.isEmpty()) {
             throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_SPELL);
@@ -329,12 +329,12 @@ public class SpiderService {
             Elements eles = doc.getElementsByClass("pronounces");
             pronounce = eles.get(0).text().trim().replace("[", "").replace("]", "");
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (pronounce.isEmpty()) {
-            System.out.println("find no pronounce");
+            logger.info("find no pronounce");
         } else {
-            System.out.println("find pronounce");
+            logger.info("find pronounce");
         }
 
         //解析意思
@@ -352,10 +352,10 @@ public class SpiderService {
                     }
                 }
 
-                System.out.println("find meaning");
+                logger.info("find meaning");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (meaning.isEmpty()) {
             throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_MEANING);
@@ -410,20 +410,20 @@ public class SpiderService {
                                 exps.add(exp);
                             }
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            logger.error(e);
                         }
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    logger.error(e);
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (exps.size() == 0) {
-            System.out.println("find exps");
+            logger.info("find exps");
         } else {
-            System.out.println("find no exps");
+            logger.info("find no exps");
         }
 
         //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
@@ -438,7 +438,7 @@ public class SpiderService {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         // 再结合例句中所有的词形
         exps.forEach(e -> e.getSentences().forEach(s -> {
@@ -457,7 +457,7 @@ public class SpiderService {
         List<String> newForms = forms.stream().map(l -> "[" + l + "]").collect(Collectors.toList());
         String forms_str = String.join(",", newForms);
 
-        System.out.println("finish grab");
+        logger.info("finish grab");
 
         Word w = new Word();
         w.setLang(Lang.FR.getIndex());
@@ -479,9 +479,9 @@ public class SpiderService {
             Element div = doc.getElementsByClass("word-text").first();
             word_text = div.children().first().text().trim();
 
-            System.out.println("find spell");
+            logger.info("find spell");
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (word_text.isEmpty()) {
             throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_SPELL);
@@ -494,12 +494,12 @@ public class SpiderService {
             Elements eles = doc.getElementsByClass("pronounces");
             pronounce = eles.get(0).text().trim().replace("[", "").replace("]", "");
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (pronounce.isEmpty()) {
-            System.out.println("find no pronounce");
+            logger.info("find no pronounce");
         } else {
-            System.out.println("find pronounce");
+            logger.info("find pronounce");
         }
 
         //解析意思
@@ -518,10 +518,10 @@ public class SpiderService {
                     }
                 }
 
-                System.out.println("find meaning");
+                logger.info("find meaning");
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (meaning.isEmpty()) {
             throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_MEANING);
@@ -576,20 +576,20 @@ public class SpiderService {
                                 exps.add(exp);
                             }
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            logger.error(e);
                         }
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    logger.error(e);
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         if (exps.size() == 0) {
-            System.out.println("find exps");
+            logger.info("find exps");
         } else {
-            System.out.println("find no exps");
+            logger.info("find no exps");
         }
 
         //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
@@ -604,7 +604,7 @@ public class SpiderService {
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e);
         }
         // 再结合例句中所有的词形
         exps.forEach(e -> e.getSentences().forEach(s -> {
@@ -623,7 +623,7 @@ public class SpiderService {
         List<String> newForms = forms.stream().map(l -> "[" + l + "]").collect(Collectors.toList());
         String forms_str = String.join(",", newForms);
 
-        System.out.println("finish grab");
+        logger.info("finish grab");
 
         Word w = new Word();
         w.setLang(Lang.KR.getIndex());
@@ -680,9 +680,9 @@ public class SpiderService {
                 Element div = wordBlock.getElementsByClass("word-text").first();
                 word_text = div.children().first().text().trim();
 
-                System.out.println("find spell");
+                logger.info("find spell");
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error(e);
             }
             if (word_text.isEmpty()) {
                 throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_SPELL);
@@ -695,13 +695,13 @@ public class SpiderService {
                 Element div = wordBlock.getElementsByClass("pronounces").first();
                 pronounce = div.children().first().text().trim().replace("[", "").replace("]", "");
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error(e);
             }
 
             if (pronounce.isEmpty()) {
-                System.out.println("find no pronounce");
+                logger.info("find no pronounce");
             } else {
-                System.out.println("find pronounce");
+                logger.info("find pronounce");
             }
 
             //解析意思
@@ -720,10 +720,10 @@ public class SpiderService {
                         }
                     }
 
-                    System.out.println("find meaning");
+                    logger.info("find meaning");
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error(e);
             }
             if (meaning.isEmpty()) {
                 throw new BusinessException(CustomMessageMap.SCRAWL_FORMAT_WRONG_NO_MEANING);
@@ -773,20 +773,20 @@ public class SpiderService {
                                     exps.add(exp);
                                 }
                             } catch (Exception e) {
-                                e.printStackTrace();
+                                logger.error(e);
                             }
                         }
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        logger.error(e);
                     }
                 }
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error(e);
             }
             if (exps.size() == 0) {
-                System.out.println("find exps");
+                logger.info("find exps");
             } else {
-                System.out.println("find no exps");
+                logger.info("find no exps");
             }
 
             //词形变化（包括原型和所有变形，用来检索，因为有时候用户检索的并不是单词原形）
@@ -810,7 +810,7 @@ public class SpiderService {
             List<String> newForms = forms.stream().map(l -> "[" + l + "]").collect(Collectors.toList());
             String forms_str = String.join(",", newForms);
 
-            System.out.println("finish grab");
+            logger.info("finish grab");
 
             Word w = new Word();
             w.setLang(Lang.JP.getIndex());
@@ -823,7 +823,7 @@ public class SpiderService {
             return w;
         }
         catch (Exception ex){
-            ex.printStackTrace();
+            logger.error(ex);
             return null;
         }
     }

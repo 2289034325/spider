@@ -1,4 +1,6 @@
 import freedom.ava.spider.entity.VocabularyMessage;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -7,6 +9,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class UtilTest {
+    protected final Log logger = LogFactory.getLog(this.getClass());
+
     @Test
     public void VocabularyMessageTest()
     {
@@ -32,7 +36,7 @@ public class UtilTest {
         linkedList.add(0);
         linkedList.add(1);
 
-        System.out.println(linkedList.poll());
+        logger.info(linkedList.poll());
     }
 
     @Test
@@ -44,6 +48,6 @@ public class UtilTest {
         list = list.stream().map(l-> "["+l+"]").collect(Collectors.toList());
         String str = String.join(",",list);
 
-        System.out.println(str);
+        logger.info(str);
     }
 }

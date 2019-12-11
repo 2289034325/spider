@@ -1,10 +1,12 @@
 package freedom.ava.spider.handler;
 
+import com.acxca.components.java.util.RandomUtil;
 import freedom.ava.spider.config.Properties;
 import freedom.ava.spider.entity.VocabularyMessage;
 import freedom.ava.spider.entity.Word;
 import freedom.ava.spider.service.SpiderService;
-import freedom.ava.spider.util.RandomUtil;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,7 @@ import java.util.List;
  */
 @Component
 public class VocabularyHandler {
+    protected final Log logger = LogFactory.getLog(this.getClass());
 
     @Autowired
     @Qualifier("instant_q")
@@ -35,7 +38,7 @@ public class VocabularyHandler {
 
     @PostConstruct
     public void start(){
-        System.out.println("Starting Spider Handler");
+        logger.info("Starting Spider Handler");
         new Thread(this::instantHandle).start();
         new Thread(this::scheduleHandle).start();
     }
@@ -47,14 +50,14 @@ public class VocabularyHandler {
             VocabularyMessage msg = instant_q.peek();
             if (msg != null) {
                 try {
-                        System.out.println("start grab " + msg.getSpell());
+                        logger.info("start grab " + msg.getSpell());
                         // 抓取可能会出异常
                         List<Word> words = spiderService.grabWord(msg.getLang(), msg.getSpell());
 
                 } catch (Exception ex) {
                     //抓取异常，直接跳过，处理下一个
-                    System.out.println("word " + msg.getSpell() + " lang " + msg.getLang() + " grab fail!");
-                    System.out.println(ex);
+                    logger.error("word " + msg.getSpell() + " lang " + msg.getLang() + " grab fail!");
+                    logger.error(ex);
                 }
                 finally {
                     instant_q.poll();
@@ -65,7 +68,7 @@ public class VocabularyHandler {
             try {
                 Thread.sleep(500);
             } catch (Exception ex) {
-                System.out.println(ex);
+                logger.error(ex);
             }
         }
     }
@@ -78,8 +81,8 @@ public class VocabularyHandler {
             VocabularyMessage msg = schedule_q.peek();
             if(msg != null) {
                 try {
-                    System.out.println("get a message");
-                    System.out.println("start grab " + msg.getSpell());
+                    logger.info("get a message");
+                    logger.info("start grab " + msg.getSpell());
                     // 抓取可能会出异常
                     List<Word> words = spiderService.grabWord(msg.getLang(), msg.getSpell());
                     did = true;
@@ -87,17 +90,17 @@ public class VocabularyHandler {
                     if (did) {
                         // TODO 暂时使用最简单的随机休眠策略
                         sleep = RandomUtil.getRandomInt(3 * 1000, 3 * 60 * 1000);
-                        System.out.println("sleep " + sleep);
+                        logger.info("sleep " + sleep);
                         try {
                             Thread.sleep(sleep);
                         } catch (Exception ex) {
-                            System.out.println(ex);
+                            logger.error(ex);
                         }
                     }
                 } catch (Exception ex) {
                     //抓取异常，直接跳过，处理下一个
-                    System.out.println("word " + msg.getSpell() + " lang " + msg.getLang() + " grab fail!");
-                    System.out.println(ex);
+                    logger.error("word " + msg.getSpell() + " lang " + msg.getLang() + " grab fail!");
+                    logger.error(ex);
                 }
                 finally {
                     schedule_q.poll();
@@ -108,7 +111,7 @@ public class VocabularyHandler {
             try {
                 Thread.sleep(500);
             } catch (Exception ex) {
-                System.out.println(ex);
+                logger.error(ex);
             }
         }
     }

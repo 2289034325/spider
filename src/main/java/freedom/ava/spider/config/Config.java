@@ -1,6 +1,7 @@
 package freedom.ava.spider.config;
 
 
+import com.acxca.components.spring.config.ExceptionConfig;
 import freedom.ava.spider.entity.VocabularyMessage;
 import org.mybatis.spring.annotation.MapperScan;
 import org.openqa.selenium.WebDriver;
@@ -10,6 +11,7 @@ import org.openqa.selenium.remote.RemoteWebDriver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.web.filter.CommonsRequestLoggingFilter;
 
 import java.net.URL;
@@ -19,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 @Configuration
 @MapperScan(basePackages = {"freedom.ava.spider.service"})
+@Import({ ExceptionConfig.class})
 public class Config {
 
     @Autowired

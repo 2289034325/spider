@@ -1,11 +1,13 @@
 package freedom.ava.spider.api;
 
+import com.acxca.components.java.entity.BusinessException;
 import freedom.ava.spider.entity.Lang;
 import freedom.ava.spider.entity.VocabularyMessage;
 import freedom.ava.spider.entity.Word;
 import freedom.ava.spider.service.SpiderService;
-import freedom.ava.spider.util.BusinessException;
 import freedom.ava.spider.util.CustomMessageMap;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping(path = "vocabulary",produces= MediaType.APPLICATION_JSON_VALUE)
 public class VocabularyController {
+    protected final Log logger = LogFactory.getLog(this.getClass());
 
     @Autowired
     @Qualifier("instant_q")
@@ -80,7 +83,7 @@ public class VocabularyController {
         VocabularyMessage msg = new VocabularyMessage(lang,form);
         if(!instant_q.contains(msg)) {
             instant_q.add(msg);
-            System.out.println("put a message "+ form);
+            logger.info("put a message "+ form);
         }
 
         return new ResponseEntity("", HttpStatus.OK);
@@ -105,7 +108,7 @@ public class VocabularyController {
             VocabularyMessage msg = new VocabularyMessage(lang,w);
             if(!schedule_q.contains(msg)) {
                 schedule_q.add(msg);
-                System.out.println("put a message "+ w);
+                logger.info("put a message "+ w);
             }
         });
 
